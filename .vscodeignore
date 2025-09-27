@@ -10,3 +10,15 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+node_modules/**
+*.log
+.DS_Store
+Thumbs.db
+test_*.py
+test_*.js
+test_*.dart
+*.md
+!README.md
+LICENSE
+INSTALLATION.md
+CHANGELOG.md
