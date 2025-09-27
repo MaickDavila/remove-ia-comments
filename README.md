@@ -2,6 +2,12 @@
 
 Una extensión de VSCode que elimina comentarios del archivo actual con funcionalidad de preview avanzada y eliminación directa, similar a como funciona la IA en Cursor.
 
+## 📸 Vista Previa
+
+![Preview de la extensión](screenshots/1-screenshot.png)
+
+_Código con comentarios marcados en rojo - Preview visual de la extensión_
+
 ## ✨ Características Principales
 
 - 🎯 **Dos modos de operación**: Preview visual y eliminación directa
