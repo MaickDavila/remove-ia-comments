@@ -10,6 +10,9 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+screenshot-demo.*
+screenshot-simple.*
+SCREENSHOTS.md
 node_modules/**
 *.log
 .DS_Store

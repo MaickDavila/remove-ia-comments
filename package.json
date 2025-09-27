@@ -2,7 +2,7 @@
   "name": "remove-ia-comments",
   "displayName": "Remove IA Comments",
   "description": "Elimina comentarios del archivo actual con preview avanzada",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "publisher": "maickdavila",
   "icon": "icon.png",
   "engines": {
@@ -26,13 +26,24 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/maickdavila/remove-ia-comments"
+    "url": "https://github.com/maickdavila/remove-ia-comments.git"
   },
   "bugs": {
     "url": "https://github.com/maickdavila/remove-ia-comments/issues"
   },
   "homepage": "https://github.com/maickdavila/remove-ia-comments#readme",
   "license": "MIT",
+  "author": "maickdavila",
+  "galleryBanner": {
+    "color": "#2563eb",
+    "theme": "light"
+  },
+  "screenshots": [
+    {
+      "path": "screenshots/1-screenshot.png",
+      "alt": "Código con comentario marcados en rojo"
+    }
+  ],
   "activationEvents": [
     "onCommand:remove-ia-comments.removeComments",
     "onCommand:remove-ia-comments.removeCommentsDirect"
