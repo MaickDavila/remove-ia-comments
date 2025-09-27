@@ -22,6 +22,6 @@ test_*.js
 test_*.dart
 *.md
 !README.md
-LICENSE
+!LICENSE.md
 INSTALLATION.md
 CHANGELOG.md
