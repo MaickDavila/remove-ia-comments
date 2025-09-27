@@ -6,6 +6,9 @@ export class PreviewProvider {
   private panel: vscode.WebviewPanel | undefined;
   private result: RemoveCommentsResult | undefined;
   private originalEditor: vscode.TextEditor | undefined;
+  private decorationType: vscode.TextEditorDecorationType | undefined;
+  private statusBarItem: vscode.StatusBarItem | undefined;
+  private cancelStatusBarItem: vscode.StatusBarItem | undefined;
 
   public static getInstance(): PreviewProvider {
     if (!PreviewProvider.instance) {
@@ -19,59 +22,150 @@ export class PreviewProvider {
 
     // Guardar referencia al editor original
     this.originalEditor = vscode.window.activeTextEditor;
+    if (!this.originalEditor) {
+      vscode.window.showErrorMessage("No hay ningún archivo abierto");
+      return false;
+    }
 
-    // Crear el panel web
-    this.panel = vscode.window.createWebviewPanel(
-      "removeCommentsPreview",
-      "Remove Comments Preview",
-      vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
-    );
+    // Crear decoración para resaltar comentarios
+    this.createDecorationType();
 
-    // Configurar el contenido del panel
-    this.panel.webview.html = this.getWebviewContent(result);
+    // Mostrar comentarios resaltados en el editor
+    await this.highlightComments();
 
-    // Manejar mensajes del webview
-    this.panel.webview.onDidReceiveMessage(async (message) => {
-      console.log("Mensaje recibido del webview:", message);
-      switch (message.command) {
-        case "apply":
-          console.log("Aplicando cambios...");
-          await this.applyChanges();
-          break;
-        case "cancel":
-          console.log("Cancelando...");
-          this.cancel();
-          break;
-        case "toggleComment":
-          this.toggleComment(message.line);
-          break;
-        default:
-          console.log("Comando desconocido:", message.command);
-      }
-    });
-
-    // Mostrar el diff en el editor
-    await this.showDiff();
+    // Crear botones de acción en la barra de estado
+    this.createStatusBarButtons();
 
     return new Promise((resolve) => {
-      this.panel!.onDidDispose(() => {
+      // El usuario puede cancelar cerrando el editor
+      // El comando cancel ya está registrado en extension.ts
+      this.panel?.onDidDispose(() => {
         resolve(false);
       });
     });
   }
 
-  private async showDiff(): Promise<void> {
+  private createDecorationType(): void {
+    this.decorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: "rgba(255, 0, 0, 0.2)",
+      border: "1px solid #ff0000",
+      borderWidth: "0 0 0 3px",
+      borderStyle: "solid",
+      borderColor: "#ff0000",
+      isWholeLine: false,
+      overviewRulerColor: "#ff0000",
+      overviewRulerLane: vscode.OverviewRulerLane.Right,
+    });
+  }
+
+  private async highlightComments(): Promise<void> {
+    if (!this.result || !this.originalEditor || !this.decorationType) return;
+
+    const decorations: vscode.DecorationOptions[] = [];
+
+    for (const comment of this.result.comments) {
+      const line = comment.line - 1; // Convertir a índice basado en 0
+
+      try {
+        const lineText = this.originalEditor.document.lineAt(line).text;
+        let startColumn: number;
+        let endColumn: number;
+
+        if (comment.type === "line") {
+          // Comentarios de línea (# o //)
+          if (this.result.language === "Python") {
+            startColumn = lineText.indexOf("#");
+          } else {
+            startColumn = lineText.indexOf("//");
+          }
+          endColumn = lineText.length;
+        } else {
+          // Comentarios de bloque (docstrings, /* */)
+          if (this.result.language === "Python") {
+            // Para docstrings, resaltar desde el inicio de la línea
+            startColumn = 0;
+            endColumn = lineText.length;
+          } else {
+            // Para comentarios de bloque JS/TS
+            if (lineText.includes("/*")) {
+              // Línea que contiene el inicio del comentario
+              startColumn = lineText.indexOf("/*");
+              endColumn = lineText.length;
+            } else if (lineText.includes("*/")) {
+              // Línea que contiene el final del comentario
+              startColumn = 0;
+              endColumn = lineText.indexOf("*/") + 2;
+            } else {
+              // Líneas intermedias del comentario de bloque
+              startColumn = 0;
+              endColumn = lineText.length;
+            }
+          }
+        }
+
+        if (startColumn >= 0) {
+          const startPos = new vscode.Position(line, startColumn);
+          const endPos = new vscode.Position(line, endColumn);
+          const range = new vscode.Range(startPos, endPos);
+
+          decorations.push({
+            range: range,
+            hoverMessage: `Comentario que será eliminado: ${comment.content.trim()}`,
+          });
+        }
+      } catch (error) {
+        console.log(`Error procesando línea ${line + 1}:`, error);
+        // Si hay error, intentar resaltar toda la línea
+        const startPos = new vscode.Position(line, 0);
+        const endPos = new vscode.Position(
+          line,
+          this.originalEditor.document.lineAt(line).text.length
+        );
+        const range = new vscode.Range(startPos, endPos);
+
+        decorations.push({
+          range: range,
+          hoverMessage: `Comentario que será eliminado: ${comment.content.trim()}`,
+        });
+      }
+    }
+
+    console.log(
+      `Aplicando ${decorations.length} decoraciones a ${this.result.comments.length} comentarios`
+    );
+    this.originalEditor.setDecorations(this.decorationType, decorations);
+  }
+
+  private createStatusBarButtons(): void {
     if (!this.result) return;
 
-    // Mostrar información en el panel web en lugar de crear aahorchivos temporales
-    console.log("Preview mostrado en panel web lateral");
+    // Limpiar botones anteriores si existen
+    this.statusBarItem?.dispose();
+    this.cancelStatusBarItem?.dispose();
 
-    // El diff se muestra en el panel web con el contenido original vs modificado
-    // Esto evita problemas con el sistema de archivos
+    // Crear botón de aplicar
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100
+    );
+    this.statusBarItem.text = `$(check) Aplicar cambios (${this.result.comments.length} comentarios)`;
+    this.statusBarItem.command = "remove-ia-comments.apply";
+    this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+      "statusBarItem.prominentBackground"
+    );
+    this.statusBarItem.show();
+
+    // Crear botón de cancelar
+    this.cancelStatusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      99
+    );
+    this.cancelStatusBarItem.text = "$(x) Cancelar";
+    this.cancelStatusBarItem.command = "remove-ia-comments.cancel";
+    this.cancelStatusBarItem.backgroundColor = new vscode.ThemeColor(
+      "statusBarItem.warningBackground"
+    );
+    this.cancelStatusBarItem.show();
   }
 
   private getFileExtension(): string {
@@ -375,7 +469,7 @@ export class PreviewProvider {
       .replace(/'/g, "&#39;");
   }
 
-  private async applyChanges(): Promise<void> {
+  public async applyChanges(): Promise<void> {
     console.log("Iniciando applyChanges...");
 
     if (!this.result) {
@@ -418,7 +512,9 @@ export class PreviewProvider {
         vscode.window.showInformationMessage(
           `Se eliminaron ${this.result.comments.length} comentarios exitosamente`
         );
-        this.panel?.dispose();
+
+        // Limpiar decoraciones después de aplicar cambios exitosamente
+        this.cleanup();
       } else {
         console.log("Error al aplicar cambios");
         vscode.window.showErrorMessage("Error al aplicar los cambios");
@@ -429,8 +525,33 @@ export class PreviewProvider {
     }
   }
 
-  private cancel(): void {
+  private cleanup(): void {
+    console.log("Limpiando decoraciones y recursos...");
+
+    // Limpiar decoraciones
+    if (this.originalEditor && this.decorationType) {
+      this.originalEditor.setDecorations(this.decorationType, []);
+    }
+
+    // Limpiar botones de la barra de estado
+    this.statusBarItem?.dispose();
+    this.cancelStatusBarItem?.dispose();
+
+    // Limpiar panel si existe
     this.panel?.dispose();
+
+    // Limpiar referencias
+    this.decorationType?.dispose();
+    this.decorationType = undefined;
+    this.statusBarItem = undefined;
+    this.cancelStatusBarItem = undefined;
+    this.panel = undefined;
+    this.result = undefined;
+    this.originalEditor = undefined;
+  }
+
+  public cancel(): void {
+    this.cleanup();
   }
 
   private toggleComment(_line: number): void {

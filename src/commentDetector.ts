@@ -70,8 +70,16 @@ export class CommentDetector {
         );
         processedBlockLines.forEach((lineNum) => processedLines.add(lineNum));
       }
-      // Detectar comentarios de bloque para JavaScript/TypeScript
-      else if (this.config.name !== "Python" && trimmedLine.startsWith("/*")) {
+      // Detectar comentarios de bloque para JavaScript/TypeScript (solo regulares, no JSDoc)
+      else if (
+        this.config.name !== "Python" &&
+        this.isRegularBlockComment(i, lines)
+      ) {
+        console.log(
+          `Detectando comentario de bloque regular en línea ${
+            i + 1
+          }: ${trimmedLine}`
+        );
         const processedBlockLines = this.detectOtherBlockComments(
           line,
           i,
@@ -149,11 +157,26 @@ export class CommentDetector {
     const processedLines: number[] = [];
     const trimmedLine = line.trim();
 
+    console.log(`Procesando línea ${lineIndex + 1}: "${trimmedLine}"`);
+
     if (trimmedLine.startsWith("/*")) {
+      console.log(`Encontrado comentario de bloque en línea ${lineIndex + 1}`);
       const isDocstring = this.isJSDocComment(lineIndex, allLines);
+      const isRegular = this.isRegularBlockComment(lineIndex, allLines);
+
+      console.log(`Es JSDoc: ${isDocstring}, Es regular: ${isRegular}`);
+
+      // Solo procesar si es un comentario regular (no JSDoc)
+      if (!isRegular) {
+        console.log(`Saltando JSDoc comment en línea ${lineIndex + 1}`);
+        return processedLines;
+      }
 
       if (trimmedLine.endsWith("*/")) {
         // Comentario de bloque de una línea
+        console.log(
+          `Comentario de bloque de una línea en línea ${lineIndex + 1}`
+        );
         comments.push({
           line: lineIndex + 1,
           content: line,
@@ -164,15 +187,22 @@ export class CommentDetector {
         });
         processedLines.push(lineIndex);
       } else {
-        // Comentario de bloque multilínea
+        // Comentario de bloque multilínea - buscar el final
+        console.log(
+          `Comentario de bloque multilínea iniciado en línea ${lineIndex + 1}`
+        );
         let endLine = lineIndex;
         for (let j = lineIndex + 1; j < allLines.length; j++) {
+          console.log(`Buscando final en línea ${j + 1}: "${allLines[j]}"`);
           if (allLines[j].includes("*/")) {
             endLine = j;
+            console.log(`Final encontrado en línea ${endLine + 1}`);
             break;
           }
         }
 
+        // Agregar todas las líneas del comentario de bloque
+        console.log(`Agregando líneas ${lineIndex + 1} a ${endLine + 1}`);
         for (let k = lineIndex; k <= endLine; k++) {
           comments.push({
             line: k + 1,
@@ -220,6 +250,15 @@ export class CommentDetector {
   private isJSDocComment(lineIndex: number, allLines: string[]): boolean {
     const line = allLines[lineIndex].trim();
     return line.startsWith("/**");
+  }
+
+  private isRegularBlockComment(
+    lineIndex: number,
+    allLines: string[]
+  ): boolean {
+    const line = allLines[lineIndex].trim();
+    // Es un comentario de bloque regular si empieza con /* pero NO con /**
+    return line.startsWith("/*") && !line.startsWith("/**");
   }
 
   public removeComments(content: string): RemoveCommentsResult {

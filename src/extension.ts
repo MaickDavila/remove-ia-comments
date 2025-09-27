@@ -14,7 +14,30 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(removeCommentsCommand);
+  // Registrar comandos de preview
+  const applyCommand = vscode.commands.registerCommand(
+    "remove-ia-comments.apply",
+    async () => {
+      const previewProvider = PreviewProvider.getInstance();
+      await previewProvider.applyChanges();
+      // El mensaje de éxito se muestra en applyChanges()
+    }
+  );
+
+  const cancelCommand = vscode.commands.registerCommand(
+    "remove-ia-comments.cancel",
+    () => {
+      const previewProvider = PreviewProvider.getInstance();
+      previewProvider.cancel();
+      vscode.window.showInformationMessage("Operación cancelada");
+    }
+  );
+
+  context.subscriptions.push(
+    removeCommentsCommand,
+    applyCommand,
+    cancelCommand
+  );
 }
 
 async function handleRemoveComments(): Promise<void> {
