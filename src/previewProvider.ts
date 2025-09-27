@@ -524,6 +524,12 @@ export class PreviewProvider {
       if (success) {
         console.log("Cambios aplicados exitosamente");
 
+        // Guardar el archivo automáticamente
+        if (this.originalEditor) {
+          await this.originalEditor.document.save();
+          console.log("Archivo guardado automáticamente");
+        }
+
         // Mostrar diálogo y limpiar marcadores cuando se cierre
         this.showSuccessDialog();
       } else {
@@ -541,59 +547,11 @@ export class PreviewProvider {
 
     const message = `✅ Se eliminaron ${this.result.comments.length} comentarios exitosamente`;
 
-    // Mostrar el diálogo con opción de revertir
-    const action = await vscode.window.showInformationMessage(
-      message,
-      "🔄 Revertir cambios"
-    );
-
-    // Si el usuario quiere revertir, hacerlo
-    if (action === "🔄 Revertir cambios") {
-      await this.revertChanges();
-    }
+    // Mostrar el diálogo simple
+    await vscode.window.showInformationMessage(message);
 
     // Limpiar marcadores rojos y recursos cuando el diálogo se cierre
     this.cleanup();
-  }
-
-  private async revertChanges(): Promise<void> {
-    if (!this.result || !this.originalEditor) {
-      vscode.window.showErrorMessage(
-        "No se puede revertir: no hay datos del archivo original"
-      );
-      return;
-    }
-
-    try {
-      console.log("Revirtiendo cambios al archivo original...");
-
-      const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(
-        this.originalEditor.document.positionAt(0),
-        this.originalEditor.document.positionAt(
-          this.originalEditor.document.getText().length
-        )
-      );
-
-      edit.replace(
-        this.originalEditor.document.uri,
-        fullRange,
-        this.result.originalContent
-      );
-
-      const success = await vscode.workspace.applyEdit(edit);
-
-      if (success) {
-        vscode.window.showInformationMessage(
-          "🔄 Archivo revertido al estado original"
-        );
-      } else {
-        vscode.window.showErrorMessage("❌ Error al revertir los cambios");
-      }
-    } catch (error) {
-      console.error("Error al revertir cambios:", error);
-      vscode.window.showErrorMessage(`Error al revertir: ${error}`);
-    }
   }
 
   private cleanup(): void {
