@@ -1,98 +1,200 @@
 # Remove IA Comments
 
-Una extensión de VSCode que elimina comentarios del archivo actual con una funcionalidad de preview avanzada, similar a como funciona la IA en Cursor.
+Una extensión de VSCode que elimina comentarios del archivo actual con funcionalidad de preview avanzada y eliminación directa, similar a como funciona la IA en Cursor.
 
-## Características
+## ✨ Características Principales
 
-- ✅ **Detección inteligente de comentarios** para Python, JavaScript y TypeScript
-- ✅ **Preview completo** antes de aplicar cambios
-- ✅ **Diff viewer nativo** de VSCode para mostrar diferencias
-- ✅ **Panel web lateral** con lista detallada de comentarios
-- ✅ **Preservación de docstrings** importantes
-- ✅ **Arquitectura extensible** para agregar nuevos lenguajes
-- ✅ **Interfaz intuitiva** con botones de aplicar/cancelar
+- 🎯 **Dos modos de operación**: Preview visual y eliminación directa
+- 🔍 **Detección inteligente** para Python, JavaScript y TypeScript
+- 🎨 **Preview visual** con marcadores rojos en comentarios detectados
+- 🖱️ **Menú contextual nativo** para aplicar o cancelar cambios
+- 💾 **Guardado automático** después de aplicar cambios
+- 🧹 **Limpieza automática** al guardar el archivo
+- 🛡️ **Preservación inteligente** de docstrings y JSDoc importantes
+- 🔧 **Arquitectura extensible** para agregar nuevos lenguajes
+- 🎪 **Interfaz nativa** que respeta el tema de VSCode
 
-## Lenguajes Soportados
+## 🚀 Modos de Operación
+
+### 🔍 Modo Preview (Recomendado)
+
+- **Atajo**: `Ctrl+Shift+R` (Windows/Linux) o `Cmd+Shift+R` (Mac)
+- **Funcionalidad**: Resalta comentarios en rojo y muestra menú contextual
+- **Ideal para**: Revisar cambios antes de aplicar
+
+### ⚡ Modo Directo
+
+- **Atajo**: `Ctrl+Shift+D` (Windows/Linux) o `Cmd+Shift+D` (Mac)
+- **Funcionalidad**: Elimina comentarios directamente sin preview
+- **Ideal para**: Usuarios experimentados que quieren eliminación rápida
+
+## 🌐 Lenguajes Soportados
 
 ### Python
 
-- Comentarios de línea: `# comentario`
-- Comentarios de bloque: `"""comentario multilínea"""` y `'''comentario multilínea'''`
-- Preserva docstrings de funciones y clases
+- **Comentarios de línea**: `# comentario`
+- **Comentarios de bloque**: `"""comentario multilínea"""` y `'''comentario multilínea'''`
+- **Comentarios al final de línea**: `código # comentario`
+- **Preserva**: Docstrings de funciones y clases
 
 ### JavaScript
 
-- Comentarios de línea: `// comentario`
-- Comentarios de bloque: `/* comentario */`
-- Preserva comentarios JSDoc
+- **Comentarios de línea**: `// comentario`
+- **Comentarios de bloque**: `/* comentario */`
+- **Comentarios al final de línea**: `código // comentario`
+- **Preserva**: Comentarios JSDoc (`/** ... */`)
 
 ### TypeScript
 
-- Comentarios de línea: `// comentario`
-- Comentarios de bloque: `/* comentario */`
-- Preserva comentarios JSDoc y documentación de interfaces
+- **Comentarios de línea**: `// comentario`
+- **Comentarios de bloque**: `/* comentario */`
+- **Comentarios al final de línea**: `código // comentario`
+- **Preserva**: Comentarios JSDoc (`/** ... */`)
 
-## Instalación
+## 📦 Instalación
 
-1. Clona este repositorio
-2. Instala las dependencias:
+### Desarrollo
+
+1. **Clona el repositorio**:
+
+   ```bash
+   git clone <repository-url>
+   cd remove-ia-comments
+   ```
+
+2. **Instala dependencias**:
+
    ```bash
    npm install
    ```
-3. Compila la extensión:
+
+3. **Compila la extensión**:
+
    ```bash
    npm run compile
    ```
-4. Presiona `F5` en VSCode para ejecutar la extensión en modo desarrollo
 
-## Uso
+4. **Ejecuta en modo desarrollo**:
+   - Presiona `F5` en VSCode
+   - Se abrirá una nueva ventana de VSCode con la extensión cargada
+
+### Uso en Producción
+
+1. **Empaqueta la extensión**:
+
+   ```bash
+   npm run vscode:prepublish
+   ```
+
+2. **Instala desde archivo .vsix**:
+   - Ve a Extensions → Install from VSIX
+   - Selecciona el archivo generado
+
+## 🎮 Uso
 
 ### Comandos Disponibles
 
-- **Remove Comments with Preview**: Comando principal para eliminar comentarios
-- **Atajo de teclado**: `Ctrl+Shift+R` (Windows/Linux) o `Cmd+Shift+R` (Mac)
-- **Menú contextual**: Click derecho en el editor → "Remove Comments with Preview"
+| Comando                          | Atajo                          | Descripción                            |
+| -------------------------------- | ------------------------------ | -------------------------------------- |
+| **Remove Comments with Preview** | `Ctrl+Shift+R` / `Cmd+Shift+R` | Elimina comentarios con preview visual |
+| **Remove Comments Directly**     | `Ctrl+Shift+D` / `Cmd+Shift+D` | Elimina comentarios directamente       |
+
+### Menú Contextual
+
+- **Click derecho** en el editor → "Remove Comments with Preview"
+- **Click derecho** en el editor → "Remove Comments Directly"
 
 ### Flujo de Trabajo
 
-1. Abre un archivo de código (Python, JavaScript o TypeScript)
-2. Ejecuta el comando "Remove Comments with Preview"
-3. La extensión analizará el archivo y mostrará:
-   - Un diff viewer con los cambios propuestos
-   - Un panel lateral con lista detallada de comentarios
-   - Estadísticas de comentarios encontrados
-4. Revisa los cambios en el diff viewer
-5. Usa los botones "Aplicar Cambios" o "Cancelar" según necesites
+#### 🔍 Con Preview (Recomendado)
 
-## Características del Preview
+1. **Abrir archivo**: Abre un archivo de código (Python, JavaScript o TypeScript)
+2. **Ejecutar comando**: Presiona `Cmd+Shift+R` (o `Ctrl+Shift+R`)
+3. **Ver preview**: Los comentarios se resaltan en rojo en el editor
+4. **Elegir acción**: Aparece un menú contextual con opciones:
+   - ✅ **Aplicar cambios**: Elimina los comentarios y guarda automáticamente
+   - ❌ **Cancelar**: Limpia los marcadores sin hacer cambios
+5. **Revertir si es necesario**: Usa `Ctrl+Z` (o `Cmd+Z`) para deshacer
 
-### Panel Lateral
+#### ⚡ Sin Preview (Directo)
 
-- **Lista detallada** de todos los comentarios encontrados
-- **Número de línea** de cada comentario
-- **Tipo de comentario** (línea, bloque, docstring)
-- **Contenido del comentario** (truncado si es muy largo)
-- **Contador total** de comentarios
-- **Botones de acción** para aplicar o cancelar
+1. **Abrir archivo**: Abre un archivo de código (Python, JavaScript o TypeScript)
+2. **Ejecutar comando**: Presiona `Cmd+Shift+D` (o `Ctrl+Shift+D`)
+3. **Aplicar**: Los comentarios se eliminan directamente y el archivo se guarda
+4. **Revertir si es necesario**: Usa `Ctrl+Z` (o `Cmd+Z`) para deshacer
 
-### Diff Viewer
+## 🎨 Características del Preview
 
-- **Comparación lado a lado** del archivo original vs modificado
-- **Resaltado de diferencias** usando el sistema nativo de VSCode
-- **Navegación fácil** entre cambios
+### Resaltado Visual
 
-## Extensión a Nuevos Lenguajes
+- **Marcadores rojos** en todos los comentarios detectados
+- **Detección inteligente** de comentarios de línea y bloque
+- **Preservación visual** de docstrings importantes
+- **Limpieza automática** después de aplicar cambios
+
+### Menú Contextual
+
+- **Interfaz nativa** de VSCode (como menú de clic derecho)
+- **Información detallada** sobre comentarios detectados
+- **Opciones claras** para aplicar o cancelar
+- **Comportamiento intuitivo** y familiar
+
+### Guardado Automático
+
+- **Aplicación inmediata** de cambios
+- **Guardado automático** del archivo
+- **Limpieza automática** de marcadores
+- **Mensaje de confirmación** con opción de revertir
+
+## 🔍 Detección Inteligente
+
+### Python
+
+```python
+# Este comentario será eliminado
+def funcion():
+    """Este docstring será preservado"""
+    codigo = "valor"  # Comentario al final será eliminado
+    return codigo
+
+"""
+Este comentario de bloque será eliminado
+"""
+```
+
+### JavaScript/TypeScript
+
+```javascript
+// Este comentario será eliminado
+function funcion() {
+  // Comentario al final será eliminado
+  const codigo = "valor";
+  return codigo;
+}
+
+/* Este comentario de bloque será eliminado */
+
+/**
+ * Este comentario JSDoc será preservado
+ * @param {string} param - Descripción del parámetro
+ */
+function documentada(param) {
+  return param;
+}
+```
+
+## 🔧 Extensión a Nuevos Lenguajes
 
 La extensión está diseñada para ser fácilmente extensible. Para agregar soporte a un nuevo lenguaje:
 
-1. Edita `src/languageConfigs.ts`
-2. Agrega una nueva configuración:
+1. **Edita `src/languageConfigs.ts`**
+2. **Agrega una nueva configuración**:
 
 ```typescript
 newLanguage: {
   name: 'New Language',
   extensions: ['.ext'],
-  lineCommentPattern: /^\s*\/\/.*$/,
+  lineCommentPattern: /\/\/.*$/,
   blockCommentStart: '/*',
   blockCommentEnd: '*/',
   docstringPatterns: [
@@ -101,9 +203,9 @@ newLanguage: {
 }
 ```
 
-3. Actualiza la función `getLanguageConfig` si es necesario
+3. **Actualiza la función `getLanguageConfig`** si es necesario
 
-## Arquitectura
+## 🏗️ Arquitectura
 
 ```
 src/
@@ -111,10 +213,10 @@ src/
 ├── types.ts             # Definiciones de tipos TypeScript
 ├── languageConfigs.ts   # Configuraciones por lenguaje
 ├── commentDetector.ts   # Lógica de detección de comentarios
-└── previewProvider.ts   # Sistema de preview y panel web
+└── previewProvider.ts   # Sistema de preview y menú contextual
 ```
 
-## Desarrollo
+## 🛠️ Desarrollo
 
 ### Estructura del Proyecto
 
@@ -129,24 +231,77 @@ src/
 - `npm run watch`: Compila en modo watch para desarrollo
 - `npm run vscode:prepublish`: Prepara la extensión para publicación
 
-## Contribuir
+### Características Técnicas
 
-1. Fork el repositorio
-2. Crea una rama para tu feature: `git checkout -b feature/nueva-funcionalidad`
-3. Commit tus cambios: `git commit -am 'Agrega nueva funcionalidad'`
-4. Push a la rama: `git push origin feature/nueva-funcionalidad`
-5. Crea un Pull Request
+#### Detección de Comentarios
 
-## Licencia
+- **Regex optimizado** para cada tipo de comentario
+- **Detección de docstrings** en Python
+- **Preservación de JSDoc** en JavaScript/TypeScript
+- **Manejo de comentarios multilínea** complejos
+
+#### Interfaz de Usuario
+
+- **Menú contextual nativo** de VSCode
+- **Resaltado visual** con decoraciones
+- **Guardado automático** integrado
+- **Limpieza automática** de recursos
+
+#### Rendimiento
+
+- **Detección rápida** de comentarios
+- **Aplicación eficiente** de cambios
+- **Limpieza automática** de memoria
+- **Interfaz responsiva**
+
+## 🤝 Contribuir
+
+1. **Fork el repositorio**
+2. **Crea una rama para tu feature**: `git checkout -b feature/nueva-funcionalidad`
+3. **Commit tus cambios**: `git commit -am 'Agrega nueva funcionalidad'`
+4. **Push a la rama**: `git push origin feature/nueva-funcionalidad`
+5. **Crea un Pull Request**
+
+## 📄 Licencia
 
 MIT License - ver archivo LICENSE para más detalles.
 
-## Changelog
+## 📝 Changelog
 
 ### v1.0.0
 
-- Soporte inicial para Python, JavaScript y TypeScript
-- Sistema de preview con diff viewer
-- Panel web lateral con lista de comentarios
-- Preservación de docstrings importantes
-- Interfaz intuitiva con validaciones
+- ✅ **Soporte inicial** para Python, JavaScript y TypeScript
+- ✅ **Sistema de preview** con marcadores rojos
+- ✅ **Menú contextual nativo** de VSCode
+- ✅ **Guardado automático** después de aplicar cambios
+- ✅ **Limpieza automática** de marcadores
+- ✅ **Preservación de docstrings** y JSDoc
+- ✅ **Interfaz intuitiva** y familiar
+- ✅ **Arquitectura extensible** para nuevos lenguajes
+- ✅ **NUEVO**: Comando directo sin preview (`Cmd+Shift+D`)
+- ✅ **NUEVO**: Eliminación directa sin confirmación
+- ✅ **NUEVO**: Dos modos de operación (con/sin preview)
+
+## 🎯 Casos de Uso
+
+### Para Desarrolladores
+
+- **Limpieza de código** antes de commits
+- **Optimización de archivos** para producción
+- **Remoción de comentarios** de debug
+
+### Para Equipos
+
+- **Estándares de código** consistentes
+- **Reducción de ruido** en el código
+- **Mejora de legibilidad** del código base
+
+### Para Proyectos
+
+- **Archivos más ligeros** para distribución
+- **Código más limpio** para documentación
+- **Mejor rendimiento** en aplicaciones
+
+---
+
+**¡Disfruta de una experiencia de desarrollo más limpia y eficiente!** 🚀

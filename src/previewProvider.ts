@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { RemoveCommentsResult } from "./types";
+import { CommentDetector } from "./commentDetector";
 
 export class PreviewProvider {
   private static instance: PreviewProvider;
@@ -7,8 +8,6 @@ export class PreviewProvider {
   private result: RemoveCommentsResult | undefined;
   private originalEditor: vscode.TextEditor | undefined;
   private decorationType: vscode.TextEditorDecorationType | undefined;
-  private statusBarItem: vscode.StatusBarItem | undefined;
-  private cancelStatusBarItem: vscode.StatusBarItem | undefined;
   private saveListener: vscode.Disposable | undefined;
 
   public static getInstance(): PreviewProvider {
@@ -47,8 +46,8 @@ export class PreviewProvider {
     // Mostrar comentarios resaltados en el editor
     await this.highlightComments();
 
-    // Crear botones de acción en la barra de estado
-    this.createStatusBarButtons();
+    // Crear botones flotantes dentro del editor
+    this.createFloatingButtons();
 
     return new Promise((resolve) => {
       // El usuario puede cancelar cerrando el editor
@@ -150,36 +149,50 @@ export class PreviewProvider {
     this.originalEditor.setDecorations(this.decorationType, decorations);
   }
 
-  private createStatusBarButtons(): void {
+  private createFloatingButtons(): void {
+    if (!this.originalEditor || !this.result) return;
+
+    // Mostrar menú contextual con opciones
+    this.showContextMenu();
+  }
+
+  private async showContextMenu(): Promise<void> {
     if (!this.result) return;
 
-    // Limpiar botones anteriores si existen
-    this.statusBarItem?.dispose();
-    this.cancelStatusBarItem?.dispose();
+    const options = [
+      {
+        label: "$(check) Aplicar cambios",
+        description: `Eliminar ${this.result.comments.length} comentarios`,
+        detail: "Aplicar los cambios y eliminar los comentarios detectados",
+        command: "apply",
+      },
+      {
+        label: "$(x) Cancelar",
+        description: "Cancelar la operación",
+        detail: "No aplicar cambios y limpiar los marcadores",
+        command: "cancel",
+      },
+    ];
 
-    // Crear botón de aplicar
-    this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-      100
-    );
-    this.statusBarItem.text = `$(check) Aplicar cambios (${this.result.comments.length} comentarios)`;
-    this.statusBarItem.command = "remove-ia-comments.apply";
-    this.statusBarItem.backgroundColor = new vscode.ThemeColor(
-      "statusBarItem.prominentBackground"
-    );
-    this.statusBarItem.show();
+    const selected = await vscode.window.showQuickPick(options, {
+      placeHolder: `Se detectaron ${this.result.comments.length} comentarios. ¿Qué deseas hacer?`,
+      ignoreFocusOut: true,
+      canPickMany: false,
+    });
 
-    // Crear botón de cancelar
-    this.cancelStatusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-      99
-    );
-    this.cancelStatusBarItem.text = "$(x) Cancelar";
-    this.cancelStatusBarItem.command = "remove-ia-comments.cancel";
-    this.cancelStatusBarItem.backgroundColor = new vscode.ThemeColor(
-      "statusBarItem.warningBackground"
-    );
-    this.cancelStatusBarItem.show();
+    if (selected) {
+      switch (selected.command) {
+        case "apply":
+          await this.applyChanges();
+          break;
+        case "cancel":
+          this.cancel();
+          break;
+      }
+    } else {
+      // Si el usuario cierra el menú sin seleccionar, cancelar
+      this.cancel();
+    }
   }
 
   private getFileExtension(): string {
@@ -562,10 +575,6 @@ export class PreviewProvider {
       this.originalEditor.setDecorations(this.decorationType, []);
     }
 
-    // Limpiar botones de la barra de estado
-    this.statusBarItem?.dispose();
-    this.cancelStatusBarItem?.dispose();
-
     // Limpiar panel si existe
     this.panel?.dispose();
 
@@ -578,8 +587,6 @@ export class PreviewProvider {
     // Limpiar referencias
     this.decorationType?.dispose();
     this.decorationType = undefined;
-    this.statusBarItem = undefined;
-    this.cancelStatusBarItem = undefined;
     this.panel = undefined;
     this.result = undefined;
     this.originalEditor = undefined;
@@ -587,6 +594,53 @@ export class PreviewProvider {
 
   public cancel(): void {
     this.cleanup();
+  }
+
+  public async applyChangesDirectly(
+    result: RemoveCommentsResult,
+    editor: vscode.TextEditor
+  ): Promise<void> {
+    try {
+      console.log("Aplicando cambios directamente...");
+
+      // Obtener la extensión del archivo
+      const fileExtension = editor.document.fileName.substring(
+        editor.document.fileName.lastIndexOf(".")
+      );
+
+      // Obtener contenido sin comentarios
+      const detector = new CommentDetector(fileExtension);
+      const removeResult = detector.removeComments(result.originalContent);
+      const contentWithoutComments = removeResult.newContent;
+
+      // Crear edit para reemplazar todo el contenido
+      const edit = new vscode.WorkspaceEdit();
+      const fullRange = new vscode.Range(
+        editor.document.positionAt(0),
+        editor.document.positionAt(editor.document.getText().length)
+      );
+
+      edit.replace(editor.document.uri, fullRange, contentWithoutComments);
+
+      // Aplicar el edit
+      const success = await vscode.workspace.applyEdit(edit);
+
+      if (success) {
+        // Guardar el archivo automáticamente
+        await editor.document.save();
+        console.log("Archivo guardado automáticamente");
+
+        // Mostrar mensaje de éxito
+        vscode.window.showInformationMessage(
+          `✅ Se eliminaron ${result.comments.length} comentarios exitosamente`
+        );
+      } else {
+        vscode.window.showErrorMessage("Error al aplicar los cambios");
+      }
+    } catch (error) {
+      console.error("Error en applyChangesDirectly:", error);
+      vscode.window.showErrorMessage(`Error al aplicar cambios: ${error}`);
+    }
   }
 
   private toggleComment(_line: number): void {

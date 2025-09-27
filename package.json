@@ -11,7 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:remove-ia-comments.removeComments"
+    "onCommand:remove-ia-comments.removeComments",
+    "onCommand:remove-ia-comments.removeCommentsDirect"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -19,6 +20,11 @@
       {
         "command": "remove-ia-comments.removeComments",
         "title": "Remove Comments with Preview",
+        "category": "Remove IA Comments"
+      },
+      {
+        "command": "remove-ia-comments.removeCommentsDirect",
+        "title": "Remove Comments Directly",
         "category": "Remove IA Comments"
       }
     ],
@@ -28,12 +34,23 @@
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "remove-ia-comments.removeCommentsDirect",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorTextFocus"
       }
     ],
     "menus": {
       "editor/context": [
         {
           "command": "remove-ia-comments.removeComments",
+          "group": "1_modification",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "remove-ia-comments.removeCommentsDirect",
           "group": "1_modification",
           "when": "editorTextFocus"
         }
