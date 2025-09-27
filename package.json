@@ -4,6 +4,7 @@
   "description": "Elimina comentarios del archivo actual con preview avanzada",
   "version": "1.0.0",
   "publisher": "maickdavila",
+  "icon": "icon.svg",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -20,12 +21,14 @@
       {
         "command": "remove-ia-comments.removeComments",
         "title": "Remove Comments with Preview",
-        "category": "Remove IA Comments"
+        "category": "Remove IA Comments",
+        "icon": "$(eye)"
       },
       {
         "command": "remove-ia-comments.removeCommentsDirect",
         "title": "Remove Comments Directly",
-        "category": "Remove IA Comments"
+        "category": "Remove IA Comments",
+        "icon": "$(trash)"
       }
     ],
     "keybindings": [

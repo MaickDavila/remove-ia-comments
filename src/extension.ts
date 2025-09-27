@@ -67,7 +67,7 @@ async function handleRemoveComments(): Promise<void> {
 
     if (!language) {
       vscode.window.showWarningMessage(
-        `Lenguaje no soportado: ${fileExtension}. Lenguajes soportados: Python, JavaScript, TypeScript`
+        `Lenguaje no soportado: ${fileExtension}. Lenguajes soportados: Python, JavaScript, TypeScript, Dart`
       );
       return;
     }
@@ -122,7 +122,7 @@ async function handleRemoveCommentsDirect(): Promise<void> {
 
     if (!language) {
       vscode.window.showWarningMessage(
-        `Lenguaje no soportado: ${fileExtension}. Lenguajes soportados: Python, JavaScript, TypeScript`
+        `Lenguaje no soportado: ${fileExtension}. Lenguajes soportados: Python, JavaScript, TypeScript, Dart`
       );
       return;
     }

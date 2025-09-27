@@ -40,6 +40,23 @@ export const languageConfigs: Record<string, LanguageConfig> = {
       /^\s*type\s+\w+.*=/,
     ],
   },
+  dart: {
+    name: "Dart",
+    extensions: [".dart"],
+    lineCommentPattern: /\/\/.*$/, // Detecta comentarios en cualquier parte de la línea
+    blockCommentStart: "/*",
+    blockCommentEnd: "*/",
+    docstringPatterns: [
+      /^\s*\/\*\*[\s\S]*?\*\/\s*$/, // Dart documentation comments
+      /^\s*\/\/\/[\s\S]*?$/, // Single-line documentation comments
+      /^\s*class\s+\w+.*\{/, // Class definition
+      /^\s*abstract\s+class\s+\w+.*\{/, // Abstract class definition
+      /^\s*mixin\s+\w+.*\{/, // Mixin definition
+      /^\s*enum\s+\w+.*\{/, // Enum definition
+      /^\s*typedef\s+\w+.*=/, // Typedef definition
+      /^\s*extension\s+\w+.*on\s+\w+.*\{/, // Extension definition
+    ],
+  },
 };
 
 export function getLanguageConfig(

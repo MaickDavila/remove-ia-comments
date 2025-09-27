@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg 
+  xmlns="http://www.w3.org/2000/svg" 
+  width="128" height="128" viewBox="0 0 128 128"
+  role="img" aria-label="Icono extensión: limpiar comentarios de código">
+
+  <!-- Fondo redondeado azul -->
+  <rect x="8" y="8" width="112" height="112" rx="20" ry="20" fill="#2563eb"/>
+
+  <!-- Globo de comentario -->
+  <path d="M28 36h56a12 12 0 0 1 12 12v24a12 12 0 0 1-12 12H44l-16 16V60a12 12 0 0 1 12-12z" 
+        fill="white" fill-opacity="0.95"/>
+
+  <!-- Texto estilo comentario // -->
+  <text x="40" y="66" font-family="monospace" font-size="28" fill="#2563eb">//</text>
+
+  <!-- Ícono de limpiar (escoba estilizada) -->
+  <g transform="translate(70,72) scale(0.9)">
+    <rect x="16" y="0" width="8" height="28" rx="2" fill="#facc15"/>
+    <path d="M10 28h20l-4 12h-12z" fill="#eab308"/>
+    <path d="M10 28h20" stroke="#78350f" stroke-width="2" />
+  </g>
+
+</svg>

@@ -5,7 +5,7 @@ Una extensión de VSCode que elimina comentarios del archivo actual con funciona
 ## ✨ Características Principales
 
 - 🎯 **Dos modos de operación**: Preview visual y eliminación directa
-- 🔍 **Detección inteligente** para Python, JavaScript y TypeScript
+- 🔍 **Detección inteligente** para Python, JavaScript, TypeScript y Dart
 - 🎨 **Preview visual** con marcadores rojos en comentarios detectados
 - 🖱️ **Menú contextual nativo** para aplicar o cancelar cambios
 - 💾 **Guardado automático** después de aplicar cambios
@@ -50,6 +50,14 @@ Una extensión de VSCode que elimina comentarios del archivo actual con funciona
 - **Comentarios de bloque**: `/* comentario */`
 - **Comentarios al final de línea**: `código // comentario`
 - **Preserva**: Comentarios JSDoc (`/** ... */`)
+
+### Dart
+
+- **Comentarios de línea**: `// comentario`
+- **Comentarios de bloque**: `/* comentario */`
+- **Comentarios al final de línea**: `código // comentario`
+- **Preserva**: Comentarios de documentación (`/// ...` y `/** ... */`)
+- **Preserva**: Definiciones de clases, mixins, enums, extensiones y typedefs
 
 ## 📦 Instalación
 
@@ -108,7 +116,7 @@ Una extensión de VSCode que elimina comentarios del archivo actual con funciona
 
 #### 🔍 Con Preview (Recomendado)
 
-1. **Abrir archivo**: Abre un archivo de código (Python, JavaScript o TypeScript)
+1. **Abrir archivo**: Abre un archivo de código (Python, JavaScript, TypeScript o Dart)
 2. **Ejecutar comando**: Presiona `Cmd+Shift+R` (o `Ctrl+Shift+R`)
 3. **Ver preview**: Los comentarios se resaltan en rojo en el editor
 4. **Elegir acción**: Aparece un menú contextual con opciones:
@@ -118,7 +126,7 @@ Una extensión de VSCode que elimina comentarios del archivo actual con funciona
 
 #### ⚡ Sin Preview (Directo)
 
-1. **Abrir archivo**: Abre un archivo de código (Python, JavaScript o TypeScript)
+1. **Abrir archivo**: Abre un archivo de código (Python, JavaScript, TypeScript o Dart)
 2. **Ejecutar comando**: Presiona `Cmd+Shift+D` (o `Ctrl+Shift+D`)
 3. **Aplicar**: Los comentarios se eliminan directamente y el archivo se guarda
 4. **Revertir si es necesario**: Usa `Ctrl+Z` (o `Cmd+Z`) para deshacer
@@ -180,6 +188,39 @@ function funcion() {
  */
 function documentada(param) {
   return param;
+}
+```
+
+### Dart
+
+```dart
+// Este comentario será eliminado
+import 'package:flutter/material.dart';
+
+/// Este comentario de documentación será preservado
+/// Describe la función principal de la aplicación
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo', // Comentario al final será eliminado
+      home: MyHomePage(),
+    );
+  }
+}
+
+/*
+Este comentario de bloque será eliminado
+*/
+
+/// Esta clase será preservada con su documentación
+class MyHomePage extends StatefulWidget {
+  @override
+  _MyHomePageState createState() => _MyHomePageState();
 }
 ```
 
@@ -270,7 +311,7 @@ MIT License - ver archivo LICENSE para más detalles.
 
 ### v1.0.0
 
-- ✅ **Soporte inicial** para Python, JavaScript y TypeScript
+- ✅ **Soporte inicial** para Python, JavaScript, TypeScript y Dart
 - ✅ **Sistema de preview** con marcadores rojos
 - ✅ **Menú contextual nativo** de VSCode
 - ✅ **Guardado automático** después de aplicar cambios
@@ -281,6 +322,8 @@ MIT License - ver archivo LICENSE para más detalles.
 - ✅ **NUEVO**: Comando directo sin preview (`Cmd+Shift+D`)
 - ✅ **NUEVO**: Eliminación directa sin confirmación
 - ✅ **NUEVO**: Dos modos de operación (con/sin preview)
+- ✅ **NUEVO**: Icono personalizado para la extensión
+- ✅ **NUEVO**: Iconos en la paleta de comandos
 
 ## 🎯 Casos de Uso
 
