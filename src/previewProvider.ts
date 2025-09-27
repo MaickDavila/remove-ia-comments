@@ -9,6 +9,7 @@ export class PreviewProvider {
   private decorationType: vscode.TextEditorDecorationType | undefined;
   private statusBarItem: vscode.StatusBarItem | undefined;
   private cancelStatusBarItem: vscode.StatusBarItem | undefined;
+  private saveListener: vscode.Disposable | undefined;
 
   public static getInstance(): PreviewProvider {
     if (!PreviewProvider.instance) {
@@ -26,6 +27,19 @@ export class PreviewProvider {
       vscode.window.showErrorMessage("No hay ningún archivo abierto");
       return false;
     }
+
+    // Limpiar listener anterior si existe
+    if (this.saveListener) {
+      this.saveListener.dispose();
+    }
+
+    // Agregar listener para detectar cuando se guarda el archivo
+    this.saveListener = vscode.workspace.onDidSaveTextDocument((document) => {
+      if (document === this.originalEditor?.document) {
+        console.log("Archivo guardado, limpiando recursos automáticamente...");
+        this.cleanup();
+      }
+    });
 
     // Crear decoración para resaltar comentarios
     this.createDecorationType();
@@ -509,12 +523,9 @@ export class PreviewProvider {
 
       if (success) {
         console.log("Cambios aplicados exitosamente");
-        vscode.window.showInformationMessage(
-          `Se eliminaron ${this.result.comments.length} comentarios exitosamente`
-        );
 
-        // Limpiar decoraciones después de aplicar cambios exitosamente
-        this.cleanup();
+        // Mostrar diálogo y limpiar marcadores cuando se cierre
+        this.showSuccessDialog();
       } else {
         console.log("Error al aplicar cambios");
         vscode.window.showErrorMessage("Error al aplicar los cambios");
@@ -522,6 +533,66 @@ export class PreviewProvider {
     } catch (error) {
       console.error("Error en applyChanges:", error);
       vscode.window.showErrorMessage(`Error al aplicar cambios: ${error}`);
+    }
+  }
+
+  private async showSuccessDialog(): Promise<void> {
+    if (!this.result) return;
+
+    const message = `✅ Se eliminaron ${this.result.comments.length} comentarios exitosamente`;
+
+    // Mostrar el diálogo con opción de revertir
+    const action = await vscode.window.showInformationMessage(
+      message,
+      "🔄 Revertir cambios"
+    );
+
+    // Si el usuario quiere revertir, hacerlo
+    if (action === "🔄 Revertir cambios") {
+      await this.revertChanges();
+    }
+
+    // Limpiar marcadores rojos y recursos cuando el diálogo se cierre
+    this.cleanup();
+  }
+
+  private async revertChanges(): Promise<void> {
+    if (!this.result || !this.originalEditor) {
+      vscode.window.showErrorMessage(
+        "No se puede revertir: no hay datos del archivo original"
+      );
+      return;
+    }
+
+    try {
+      console.log("Revirtiendo cambios al archivo original...");
+
+      const edit = new vscode.WorkspaceEdit();
+      const fullRange = new vscode.Range(
+        this.originalEditor.document.positionAt(0),
+        this.originalEditor.document.positionAt(
+          this.originalEditor.document.getText().length
+        )
+      );
+
+      edit.replace(
+        this.originalEditor.document.uri,
+        fullRange,
+        this.result.originalContent
+      );
+
+      const success = await vscode.workspace.applyEdit(edit);
+
+      if (success) {
+        vscode.window.showInformationMessage(
+          "🔄 Archivo revertido al estado original"
+        );
+      } else {
+        vscode.window.showErrorMessage("❌ Error al revertir los cambios");
+      }
+    } catch (error) {
+      console.error("Error al revertir cambios:", error);
+      vscode.window.showErrorMessage(`Error al revertir: ${error}`);
     }
   }
 
@@ -539,6 +610,12 @@ export class PreviewProvider {
 
     // Limpiar panel si existe
     this.panel?.dispose();
+
+    // Limpiar listener de guardado
+    if (this.saveListener) {
+      this.saveListener.dispose();
+      this.saveListener = undefined;
+    }
 
     // Limpiar referencias
     this.decorationType?.dispose();
