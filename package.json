@@ -2,7 +2,7 @@
   "name": "remove-ia-comments",
   "displayName": "Remove IA Comments",
   "description": "Elimina comentarios del archivo actual con preview avanzada",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publisher": "maickdavila",
   "icon": "icon.png",
   "engines": {

@@ -5,6 +5,7 @@ export interface CommentInfo {
   startColumn: number;
   endColumn: number;
   isDocstring: boolean;
+  selected?: boolean; // Si el comentario está seleccionado para eliminar
 }
 
 export interface LanguageConfig {
@@ -21,4 +22,12 @@ export interface RemoveCommentsResult {
   newContent: string;
   comments: CommentInfo[];
   language: string;
+  selectionRange?: {
+    startLine: number;
+    endLine: number;
+    startCharacter: number;
+    endCharacter: number;
+  };
+  // Comentarios con números de línea relativos al contenido original (sin ajustar)
+  commentsRelative?: CommentInfo[];
 }

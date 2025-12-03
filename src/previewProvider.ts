@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
-import { RemoveCommentsResult } from "./types";
+import { RemoveCommentsResult, CommentInfo } from "./types";
 import { CommentDetector } from "./commentDetector";
+import { CommentCodeLensProvider } from "./commentCodeLensProvider";
 
 export class PreviewProvider {
   private static instance: PreviewProvider;
@@ -9,6 +10,8 @@ export class PreviewProvider {
   private originalEditor: vscode.TextEditor | undefined;
   private decorationType: vscode.TextEditorDecorationType | undefined;
   private saveListener: vscode.Disposable | undefined;
+  private codeLensProvider: CommentCodeLensProvider | undefined;
+  private codeLensDisposable: vscode.Disposable | undefined;
 
   public static getInstance(): PreviewProvider {
     if (!PreviewProvider.instance) {
@@ -17,7 +20,24 @@ export class PreviewProvider {
     return PreviewProvider.instance;
   }
 
-  public async showPreview(result: RemoveCommentsResult): Promise<boolean> {
+  private selectionRange: vscode.Selection | undefined;
+
+  public async showPreview(
+    result: RemoveCommentsResult,
+    selection?: vscode.Selection
+  ): Promise<boolean> {
+    this.selectionRange = selection;
+    // Inicializar selected en todos los comentarios (excepto docstrings que nunca se eliminan)
+    result.comments.forEach((comment) => {
+      if (comment.isDocstring) {
+        // Los docstrings nunca se seleccionan para eliminar
+        comment.selected = false;
+      } else if (comment.selected === undefined) {
+        // Por defecto, todos los comentarios no-docstring están seleccionados
+        comment.selected = true;
+      }
+    });
+
     this.result = result;
 
     // Guardar referencia al editor original
@@ -46,7 +66,10 @@ export class PreviewProvider {
     // Mostrar comentarios resaltados en el editor
     await this.highlightComments();
 
-    // Crear botones flotantes dentro del editor
+    // Configurar CodeLens para botones inline
+    this.setupCodeLens();
+
+    // Crear botones flotantes dentro del editor (menú contextual)
     this.createFloatingButtons();
 
     return new Promise((resolve) => {
@@ -56,6 +79,46 @@ export class PreviewProvider {
         resolve(false);
       });
     });
+  }
+
+  private setupCodeLens(): void {
+    if (!this.originalEditor) return;
+
+    // Limpiar cualquier CodeLens anterior antes de crear uno nuevo
+    if (this.codeLensDisposable) {
+      this.codeLensDisposable.dispose();
+      this.codeLensDisposable = undefined;
+    }
+    if (this.codeLensProvider) {
+      this.codeLensProvider.setResult(undefined, undefined);
+      this.codeLensProvider = undefined;
+    }
+
+    // Crear el CodeLensProvider
+    this.codeLensProvider = new CommentCodeLensProvider();
+    this.codeLensProvider.setResult(this.result, this.originalEditor.document.uri);
+
+    // Registrar el provider para todos los archivos (el provider verificará internamente)
+    // Usar el lenguaje del documento para mejor compatibilidad
+    const languageId = this.originalEditor.document.languageId;
+    
+    this.codeLensDisposable = vscode.languages.registerCodeLensProvider(
+      { scheme: "file", language: languageId },
+      this.codeLensProvider
+    );
+
+    console.log(`CodeLens registrado para lenguaje: ${languageId}`);
+
+    // Forzar actualización del CodeLens después de un breve delay
+    setTimeout(() => {
+      if (this.codeLensProvider && this.result && this.originalEditor) {
+        console.log("Forzando actualización de CodeLens...");
+        this.codeLensProvider.setResult(
+          this.result,
+          this.originalEditor.document.uri
+        );
+      }
+    }, 200);
   }
 
   private createDecorationType(): void {
@@ -72,6 +135,27 @@ export class PreviewProvider {
   }
 
   private async highlightComments(): Promise<void> {
+    if (!this.result || !this.originalEditor || !this.decorationType) return;
+
+    // Solo resaltar comentarios seleccionados (no docstrings)
+    // Asegurarse de que selected sea true (no undefined) y que no sea docstring
+    const selectedComments = this.result.comments.filter((c) => {
+      const isSelected = c.selected === true || (c.selected === undefined && !c.isDocstring);
+      const isNotDocstring = !c.isDocstring;
+      return isSelected && isNotDocstring;
+    });
+
+    console.log(
+      `Highlight: ${selectedComments.length} comentarios seleccionados de ${this.result.comments.length} totales`
+    );
+    console.log(
+      `Docstrings: ${this.result.comments.filter((c) => c.isDocstring).length}`
+    );
+
+    await this.highlightSelectedComments(selectedComments);
+  }
+
+  private async highlightCommentsOld(): Promise<void> {
     if (!this.result || !this.originalEditor || !this.decorationType) return;
 
     const decorations: vscode.DecorationOptions[] = [];
@@ -514,21 +598,57 @@ export class PreviewProvider {
     }
 
     try {
+      // Obtener la extensión del archivo
+      const fileExtension = editor.document.fileName.substring(
+        editor.document.fileName.lastIndexOf(".")
+      );
+
+      // Usar removeSelectedComments para eliminar solo los comentarios seleccionados
+      const detector = new CommentDetector(fileExtension);
+      
+      // Si hay selección, usar comentarios relativos (sin ajustar)
+      // Si no hay selección, usar comentarios normales
+      const commentsToProcess = this.result.commentsRelative || this.result.comments;
+      
+      console.log(`applyChanges: Procesando con ${commentsToProcess.length} comentarios`);
+      console.log(`Hay selección: ${!!this.selectionRange}`);
+      console.log(`Comentarios a procesar:`, commentsToProcess.map(c => ({ 
+        line: c.line, 
+        selected: c.selected, 
+        isDocstring: c.isDocstring,
+        content: c.content.substring(0, 50)
+      })));
+      
+      const updatedResult = detector.removeSelectedComments(
+        this.result.originalContent,
+        commentsToProcess
+      );
+
       console.log("Aplicando cambios al archivo:", editor.document.fileName);
       console.log("Editor URI:", editor.document.uri.toString());
-      console.log(
-        "Contenido original length:",
-        editor.document.getText().length
-      );
-      console.log("Nuevo contenido length:", this.result.newContent.length);
 
       const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(
-        editor.document.positionAt(0),
-        editor.document.positionAt(editor.document.getText().length)
-      );
 
-      edit.replace(editor.document.uri, fullRange, this.result.newContent);
+      // Si hay una selección, reemplazar solo esa parte
+      if (this.selectionRange && this.result.selectionRange) {
+        const selection = this.selectionRange;
+        const range = new vscode.Range(selection.start, selection.end);
+        
+        console.log(
+          `Aplicando cambios solo a la selección: líneas ${selection.start.line + 1} a ${selection.end.line + 1}`
+        );
+        
+        edit.replace(editor.document.uri, range, updatedResult.newContent);
+      } else {
+        // Reemplazar todo el archivo
+        const fullRange = new vscode.Range(
+          editor.document.positionAt(0),
+          editor.document.positionAt(editor.document.getText().length)
+        );
+        
+        console.log("Aplicando cambios a todo el archivo");
+        edit.replace(editor.document.uri, fullRange, updatedResult.newContent);
+      }
 
       console.log("Aplicando edit...");
       const success = await vscode.workspace.applyEdit(edit);
@@ -537,14 +657,31 @@ export class PreviewProvider {
       if (success) {
         console.log("Cambios aplicados exitosamente");
 
+        // Contar comentarios eliminados
+        const removedCount = this.result.comments.filter(
+          (c) => (c.selected === undefined || c.selected === true) && !c.isDocstring
+        ).length;
+
         // Guardar el archivo automáticamente
         if (this.originalEditor) {
           await this.originalEditor.document.save();
           console.log("Archivo guardado automáticamente");
         }
 
-        // Mostrar diálogo y limpiar marcadores cuando se cierre
-        this.showSuccessDialog();
+        // Limpiar CodeLensProvider y disposable inmediatamente
+        if (this.codeLensProvider) {
+          this.codeLensProvider.setResult(undefined, undefined);
+        }
+        if (this.codeLensDisposable) {
+          this.codeLensDisposable.dispose();
+          this.codeLensDisposable = undefined;
+        }
+        
+        // Limpiar todos los recursos
+        this.cleanup();
+
+        // Mostrar diálogo de éxito
+        this.showSuccessDialog(removedCount);
       } else {
         console.log("Error al aplicar cambios");
         vscode.window.showErrorMessage("Error al aplicar los cambios");
@@ -555,10 +692,13 @@ export class PreviewProvider {
     }
   }
 
-  private async showSuccessDialog(): Promise<void> {
+  private async showSuccessDialog(removedCount?: number): Promise<void> {
     if (!this.result) return;
 
-    const message = `✅ Se eliminaron ${this.result.comments.length} comentarios exitosamente`;
+    const count = removedCount !== undefined 
+      ? removedCount 
+      : this.result.comments.filter(c => c.selected !== false && !c.isDocstring).length;
+    const message = `✅ Se eliminaron ${count} comentarios exitosamente`;
 
     // Mostrar el diálogo simple
     await vscode.window.showInformationMessage(message);
@@ -567,16 +707,258 @@ export class PreviewProvider {
     this.cleanup();
   }
 
+  public acceptComment(line: number): void {
+    if (!this.result) return;
+
+    // Ajustar la línea si hay selección
+    let actualLine = line;
+    if (this.selectionRange && this.result.selectionRange) {
+      actualLine = line - this.result.selectionRange.startLine;
+    }
+
+    const comment = this.result.comments.find((c) => c.line === line);
+    
+    if (comment) {
+      comment.selected = true;
+      // Actualizar también en commentsRelative si existe
+      if (this.result.commentsRelative) {
+        const commentRelative = this.result.commentsRelative.find((c) => c.line === actualLine);
+        if (commentRelative) {
+          commentRelative.selected = true;
+        }
+      }
+      this.updateCodeLens();
+      this.updateDecorations();
+    }
+  }
+
+  public rejectComment(line: number): void {
+    if (!this.result) return;
+
+    // Ajustar la línea si hay selección
+    let actualLine = line;
+    if (this.selectionRange && this.result.selectionRange) {
+      actualLine = line - this.result.selectionRange.startLine;
+    }
+
+    const comment = this.result.comments.find((c) => c.line === line);
+    
+    if (comment) {
+      comment.selected = false;
+      // Actualizar también en commentsRelative para que se respete al aplicar cambios
+      if (this.result.commentsRelative) {
+        const commentRelative = this.result.commentsRelative.find((c) => c.line === actualLine);
+        if (commentRelative) {
+          commentRelative.selected = false;
+          console.log(`Rechazando comentario en línea ${line} (relativa: ${actualLine})`);
+        }
+      }
+      this.updateCodeLens();
+      this.updateDecorations();
+    }
+  }
+
+  public acceptCommentBlock(lines: number[]): void {
+    if (!this.result) return;
+
+    // Aceptar todos los comentarios en las líneas especificadas
+    lines.forEach((line) => {
+      if (!this.result) return;
+      
+      // Ajustar la línea si hay selección
+      let actualLine = line;
+      if (this.selectionRange && this.result.selectionRange) {
+        actualLine = line - this.result.selectionRange.startLine;
+      }
+
+      const comment = this.result.comments.find((c) => c.line === line);
+      
+      if (comment && !comment.isDocstring) {
+        comment.selected = true;
+        // Actualizar también en commentsRelative si existe
+        if (this.result.commentsRelative) {
+          const commentRelative = this.result.commentsRelative.find((c) => c.line === actualLine);
+          if (commentRelative) {
+            commentRelative.selected = true;
+          }
+        }
+      }
+    });
+
+    this.updateCodeLens();
+    this.updateDecorations();
+  }
+
+  public rejectCommentBlock(lines: number[]): void {
+    if (!this.result) return;
+
+    // Rechazar todos los comentarios en las líneas especificadas
+    lines.forEach((line) => {
+      if (!this.result) return;
+      
+      // Ajustar la línea si hay selección
+      let actualLine = line;
+      if (this.selectionRange && this.result.selectionRange) {
+        actualLine = line - this.result.selectionRange.startLine;
+      }
+
+      const comment = this.result.comments.find((c) => c.line === line);
+      
+      if (comment && !comment.isDocstring) {
+        comment.selected = false;
+        // Actualizar también en commentsRelative para que se respete al aplicar cambios
+        if (this.result.commentsRelative) {
+          const commentRelative = this.result.commentsRelative.find((c) => c.line === actualLine);
+          if (commentRelative) {
+            commentRelative.selected = false;
+            console.log(`Rechazando comentario en línea ${line} (relativa: ${actualLine})`);
+          }
+        }
+      }
+    });
+
+    this.updateCodeLens();
+    this.updateDecorations();
+  }
+
+  private updateCodeLens(): void {
+    if (this.codeLensProvider && this.result && this.originalEditor) {
+      this.codeLensProvider.setResult(
+        this.result,
+        this.originalEditor.document.uri
+      );
+    }
+  }
+
+  private updateDecorations(): void {
+    if (!this.result || !this.originalEditor || !this.decorationType) return;
+
+    // Solo resaltar comentarios seleccionados
+    const selectedComments = this.result.comments.filter(
+      (c) => c.selected && !c.isDocstring
+    );
+    this.highlightSelectedComments(selectedComments);
+  }
+
+  private async highlightSelectedComments(
+    comments: CommentInfo[]
+  ): Promise<void> {
+    if (!this.originalEditor || !this.decorationType) return;
+
+    const decorations: vscode.DecorationOptions[] = [];
+
+    // Si hay una selección, filtrar comentarios que estén dentro de la selección
+    let filteredComments = comments;
+    if (this.selectionRange && this.result?.selectionRange) {
+      const selectionStartLine = this.result.selectionRange.startLine;
+      const selectionEndLine = this.result.selectionRange.endLine;
+      
+      filteredComments = comments.filter((comment) => {
+        const commentLine = comment.line - 1; // Convertir a índice basado en 0
+        return commentLine >= selectionStartLine && commentLine <= selectionEndLine;
+      });
+    }
+
+    for (const comment of filteredComments) {
+      const line = comment.line - 1;
+
+      try {
+        const lineText = this.originalEditor.document.lineAt(line).text;
+        let startColumn: number;
+        let endColumn: number;
+
+        if (comment.type === "line") {
+          if (this.result?.language === "Python") {
+            startColumn = lineText.indexOf("#");
+          } else {
+            startColumn = lineText.indexOf("//");
+          }
+          endColumn = lineText.length;
+        } else {
+          if (this.result?.language === "Python") {
+            startColumn = 0;
+            endColumn = lineText.length;
+          } else {
+            if (lineText.includes("/*")) {
+              startColumn = lineText.indexOf("/*");
+              endColumn = lineText.length;
+            } else if (lineText.includes("*/")) {
+              startColumn = 0;
+              endColumn = lineText.indexOf("*/") + 2;
+            } else {
+              startColumn = 0;
+              endColumn = lineText.length;
+            }
+          }
+        }
+
+        if (startColumn >= 0) {
+          const startPos = new vscode.Position(line, startColumn);
+          const endPos = new vscode.Position(line, endColumn);
+          const range = new vscode.Range(startPos, endPos);
+
+          decorations.push({
+            range: range,
+            hoverMessage: `Comentario seleccionado para eliminar: ${comment.content.trim()}`,
+          });
+        }
+      } catch (error) {
+        console.log(`Error procesando línea ${line + 1}:`, error);
+        const startPos = new vscode.Position(line, 0);
+        const endPos = new vscode.Position(
+          line,
+          this.originalEditor.document.lineAt(line).text.length
+        );
+        const range = new vscode.Range(startPos, endPos);
+
+        decorations.push({
+          range: range,
+          hoverMessage: `Comentario seleccionado para eliminar: ${comment.content.trim()}`,
+        });
+      }
+    }
+
+    this.originalEditor.setDecorations(this.decorationType, decorations);
+  }
+
   private cleanup(): void {
     console.log("Limpiando decoraciones y recursos...");
 
+    // Limpiar CodeLensProvider PRIMERO y forzar actualización
+    if (this.codeLensProvider) {
+      this.codeLensProvider.setResult(undefined, undefined);
+      // Forzar múltiples actualizaciones para asegurar limpieza
+      setTimeout(() => {
+        if (this.codeLensProvider) {
+          this.codeLensProvider.setResult(undefined, undefined);
+        }
+      }, 50);
+      setTimeout(() => {
+        if (this.codeLensProvider) {
+          this.codeLensProvider.setResult(undefined, undefined);
+        }
+      }, 150);
+    }
+
+    // Limpiar CodeLens disposable - esto es crítico para que los botones desaparezcan
+    if (this.codeLensDisposable) {
+      this.codeLensDisposable.dispose();
+      this.codeLensDisposable = undefined;
+    }
+
     // Limpiar decoraciones
-    if (this.originalEditor && this.decorationType) {
-      this.originalEditor.setDecorations(this.decorationType, []);
+    if (this.originalEditor) {
+      if (this.decorationType) {
+        // Forzar limpieza de todas las decoraciones
+        this.originalEditor.setDecorations(this.decorationType, []);
+      }
     }
 
     // Limpiar panel si existe
-    this.panel?.dispose();
+    if (this.panel) {
+      this.panel.dispose();
+      this.panel = undefined;
+    }
 
     // Limpiar listener de guardado
     if (this.saveListener) {
@@ -584,21 +966,61 @@ export class PreviewProvider {
       this.saveListener = undefined;
     }
 
-    // Limpiar referencias
-    this.decorationType?.dispose();
-    this.decorationType = undefined;
-    this.panel = undefined;
+    // Limpiar decoración type
+    if (this.decorationType) {
+      this.decorationType.dispose();
+      this.decorationType = undefined;
+    }
+
+    // Limpiar todas las referencias
     this.result = undefined;
     this.originalEditor = undefined;
+    this.codeLensProvider = undefined;
+    this.selectionRange = undefined;
   }
 
   public cancel(): void {
+    console.log("Cancelando operación y limpiando todos los recursos...");
+    
+    // Limpiar CodeLensProvider inmediatamente
+    if (this.codeLensProvider) {
+      this.codeLensProvider.setResult(undefined, undefined);
+    }
+    
+    // Desechar el disposable inmediatamente
+    if (this.codeLensDisposable) {
+      this.codeLensDisposable.dispose();
+      this.codeLensDisposable = undefined;
+    }
+    
+    // Limpiar decoraciones
+    if (this.originalEditor && this.decorationType) {
+      this.originalEditor.setDecorations(this.decorationType, []);
+    }
+    
+    // Llamar a cleanup completo
     this.cleanup();
+    
+    // Forzar limpieza adicional después de delays para asegurar que todo se limpie
+    setTimeout(() => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && this.decorationType) {
+        editor.setDecorations(this.decorationType, []);
+      }
+    }, 100);
+    
+    setTimeout(() => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && this.decorationType) {
+        editor.setDecorations(this.decorationType, []);
+      }
+    }, 300);
   }
 
   public async applyChangesDirectly(
     result: RemoveCommentsResult,
-    editor: vscode.TextEditor
+    editor: vscode.TextEditor,
+    selection?: vscode.Selection
   ): Promise<void> {
     try {
       console.log("Aplicando cambios directamente...");
@@ -610,17 +1032,38 @@ export class PreviewProvider {
 
       // Obtener contenido sin comentarios
       const detector = new CommentDetector(fileExtension);
-      const removeResult = detector.removeComments(result.originalContent);
+      
+      // Si hay selección, usar comentarios relativos (sin ajustar)
+      // Si no hay selección, procesar normalmente
+      const commentsToProcess = result.commentsRelative || result.comments;
+      const removeResult = detector.removeSelectedComments(
+        result.originalContent,
+        commentsToProcess
+      );
       const contentWithoutComments = removeResult.newContent;
 
-      // Crear edit para reemplazar todo el contenido
+      // Crear edit
       const edit = new vscode.WorkspaceEdit();
-      const fullRange = new vscode.Range(
-        editor.document.positionAt(0),
-        editor.document.positionAt(editor.document.getText().length)
-      );
 
-      edit.replace(editor.document.uri, fullRange, contentWithoutComments);
+      // Si hay una selección, reemplazar solo esa parte
+      if (selection && result.selectionRange) {
+        const range = new vscode.Range(selection.start, selection.end);
+        
+        console.log(
+          `Aplicando cambios directamente a la selección: líneas ${selection.start.line + 1} a ${selection.end.line + 1}`
+        );
+        
+        edit.replace(editor.document.uri, range, contentWithoutComments);
+      } else {
+        // Reemplazar todo el contenido
+        const fullRange = new vscode.Range(
+          editor.document.positionAt(0),
+          editor.document.positionAt(editor.document.getText().length)
+        );
+        
+        console.log("Aplicando cambios directamente a todo el archivo");
+        edit.replace(editor.document.uri, fullRange, contentWithoutComments);
+      }
 
       // Aplicar el edit
       const success = await vscode.workspace.applyEdit(edit);
@@ -629,6 +1072,10 @@ export class PreviewProvider {
         // Guardar el archivo automáticamente
         await editor.document.save();
         console.log("Archivo guardado automáticamente");
+
+        // Limpiar recursos si hay una instancia activa
+        const previewProvider = PreviewProvider.getInstance();
+        previewProvider.cleanup();
 
         // Mostrar mensaje de éxito
         vscode.window.showInformationMessage(

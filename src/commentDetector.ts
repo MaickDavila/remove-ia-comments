@@ -44,8 +44,9 @@ export class CommentDetector {
         const isFullLineComment =
           commentStart === 0 || line.substring(0, commentStart).trim() === "";
 
-        // Verificar si es un docstring
-        const isDocstring = this.isDocstring(line, i, lines);
+        // Los comentarios de línea (# o //) NUNCA son docstrings
+        // Los docstrings solo son comentarios de bloque (""", ''', /** */)
+        const isDocstring = false;
 
         comments.push({
           line: i + 1,
@@ -306,6 +307,176 @@ export class CommentDetector {
       if (isBlockComment) {
         // Comentario de bloque - omitir la línea
         continue;
+      }
+
+      // Si no es ningún tipo de comentario, mantener la línea
+      newLines.push(line);
+    }
+
+    return {
+      originalContent: content,
+      newContent: newLines.join("\n"),
+      comments,
+      language: this.config.name,
+    };
+  }
+
+  public removeSelectedComments(
+    content: string,
+    comments: CommentInfo[]
+  ): RemoveCommentsResult {
+    const lines = content.split("\n");
+    const newLines: string[] = [];
+    const processedBlockLines = new Set<number>();
+
+    console.log(`removeSelectedComments: Procesando ${lines.length} líneas con ${comments.length} comentarios`);
+    console.log(`Comentarios:`, comments.map(c => ({ line: c.line, selected: c.selected, isDocstring: c.isDocstring })));
+
+    for (let i = 0; i < lines.length; i++) {
+      if (processedBlockLines.has(i)) {
+        continue;
+      }
+
+      const lineComments = comments.filter((c) => c.line === i + 1);
+      
+      if (lineComments.length > 0) {
+        console.log(`Línea ${i + 1}: Encontrados ${lineComments.length} comentarios`, 
+          lineComments.map(c => ({ selected: c.selected, isDocstring: c.isDocstring, type: c.type })));
+      }
+
+      if (lineComments.length === 0) {
+        newLines.push(lines[i]);
+        continue;
+      }
+
+      const line = lines[i];
+      const trimmedLine = line.trim();
+
+      // Verificar si es un comentario de línea
+      if (this.config.lineCommentPattern.test(line)) {
+        // Verificar si este comentario está seleccionado para eliminar
+        // selected === undefined o selected === true significa que se elimina
+        const shouldRemove = lineComments.some(
+          (c) => (c.selected === undefined || c.selected === true) && !c.isDocstring
+        );
+
+        if (shouldRemove) {
+          let commentStart: number;
+
+          if (this.config.name === "Python") {
+            commentStart = line.indexOf("#");
+          } else {
+            commentStart = line.indexOf("//");
+          }
+
+          // Si es un comentario al final de línea, mantener el código antes del comentario
+          if (commentStart > 0 && line.substring(0, commentStart).trim() !== "") {
+            const codeBeforeComment = line.substring(0, commentStart).trimEnd();
+            if (codeBeforeComment) {
+              newLines.push(codeBeforeComment);
+            }
+          }
+          // Si es una línea completa de comentario, omitirla
+          continue;
+        } else {
+          // No eliminar este comentario, mantener la línea completa
+          newLines.push(line);
+          continue;
+        }
+      }
+
+      // Verificar si es un comentario de bloque
+      const isBlockComment = lineComments.some((c) => c.type === "block");
+      if (isBlockComment) {
+        // Verificar si es un docstring - si lo es, mantenerlo siempre
+        const isDocstring = lineComments.some((c) => c.isDocstring === true);
+        if (isDocstring) {
+          // Es un docstring, mantenerlo siempre
+          newLines.push(line);
+          continue;
+        }
+
+        // Verificar si este comentario de bloque está seleccionado para eliminar
+        const shouldRemove = lineComments.some(
+          (c) => (c.selected === undefined || c.selected === true) && !c.isDocstring
+        );
+
+        if (shouldRemove) {
+          // Comentario de bloque seleccionado - buscar todas las líneas del bloque
+          if (this.config.name === "Python") {
+            const quoteType = trimmedLine.includes('"""')
+              ? '"""'
+              : trimmedLine.includes("'''")
+              ? "'''"
+              : null;
+
+            if (quoteType) {
+              if (trimmedLine.endsWith(quoteType) && trimmedLine.length > 6) {
+                // Comentario de una línea - omitir
+                processedBlockLines.add(i);
+                continue;
+              } else {
+                // Comentario multilínea - buscar el final
+                for (let j = i; j < lines.length; j++) {
+                  processedBlockLines.add(j);
+                  if (j > i && lines[j].includes(quoteType)) {
+                    break;
+                  }
+                }
+                continue;
+              }
+            }
+          } else {
+            // JavaScript/TypeScript - comentario de bloque
+            if (trimmedLine.includes("/*")) {
+              // Buscar el final del comentario
+              for (let j = i; j < lines.length; j++) {
+                processedBlockLines.add(j);
+                if (lines[j].includes("*/")) {
+                  break;
+                }
+              }
+              continue;
+            }
+          }
+        } else {
+          // No eliminar este comentario de bloque, mantenerlo
+          if (this.config.name === "Python") {
+            const quoteType = trimmedLine.includes('"""')
+              ? '"""'
+              : trimmedLine.includes("'''")
+              ? "'''"
+              : null;
+
+            if (quoteType) {
+              if (trimmedLine.endsWith(quoteType) && trimmedLine.length > 6) {
+                newLines.push(line);
+                processedBlockLines.add(i);
+                continue;
+              } else {
+                for (let j = i; j < lines.length; j++) {
+                  newLines.push(lines[j]);
+                  processedBlockLines.add(j);
+                  if (j > i && lines[j].includes(quoteType)) {
+                    break;
+                  }
+                }
+                continue;
+              }
+            }
+          } else {
+            if (trimmedLine.includes("/*")) {
+              for (let j = i; j < lines.length; j++) {
+                newLines.push(lines[j]);
+                processedBlockLines.add(j);
+                if (lines[j].includes("*/")) {
+                  break;
+                }
+              }
+              continue;
+            }
+          }
+        }
       }
 
       // Si no es ningún tipo de comentario, mantener la línea

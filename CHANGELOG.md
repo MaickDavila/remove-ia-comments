@@ -5,6 +5,14 @@ Todos los cambios notables de este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2024-12-XX
+
+### Corregido
+
+- Preservación correcta de docstrings de Python (ya no se marcan ni se eliminan)
+- Nuevo sistema de botones inline (CodeLens) para aceptar/rechazar comentarios por bloque
+- Posibilidad de elegir qué comentarios se eliminan y cuáles se preservan
+
 ## [1.0.0] - 2024-01-XX
 
 ### Agregado
